@@ -8,6 +8,7 @@ struct GoalDetailView: View {
         Group {
             if let goal {
                 GoalEditor(goal: goal, store: store)
+                    .id(goal.id)
             } else {
                 EmptyStateView(
                     systemImage: "square.and.pencil",
@@ -23,18 +24,31 @@ struct GoalDetailView: View {
 private struct GoalEditor: View {
     let goal: Goal
     @ObservedObject var store: PlanningStore
+    @State private var draftTitle = ""
+    @State private var draftNote = ""
+    @FocusState private var focusedField: Field?
+
+    private enum Field {
+        case title
+        case note
+    }
 
     var body: some View {
         Form {
             Section {
-                TextField("标题", text: titleBinding, axis: .vertical)
+                TextField("标题", text: $draftTitle, axis: .vertical)
                     .font(.title3.weight(.semibold))
                     .lineLimit(1...3)
+                    .focused($focusedField, equals: .title)
+                    .onSubmit {
+                        saveDraft()
+                    }
 
-                TextEditor(text: noteBinding)
+                TextEditor(text: $draftNote)
                     .font(.body)
                     .frame(minHeight: 150)
                     .scrollContentBackground(.hidden)
+                    .focused($focusedField, equals: .note)
             } header: {
                 Text(goal.level.displayName)
             }
@@ -43,6 +57,7 @@ private struct GoalEditor: View {
                 Toggle("已完成", isOn: Binding(
                     get: { store.goal(id: goal.id)?.isCompleted ?? goal.isCompleted },
                     set: { value in
+                        saveDraft()
                         if let current = store.goal(id: goal.id) {
                             store.setCompleted(current, isCompleted: value)
                         }
@@ -52,6 +67,7 @@ private struct GoalEditor: View {
                 Toggle("加急", isOn: Binding(
                     get: { store.goal(id: goal.id)?.isUrgent ?? goal.isUrgent },
                     set: { _ in
+                        saveDraft()
                         if let current = store.goal(id: goal.id) {
                             store.toggleUrgent(current)
                         }
@@ -79,27 +95,26 @@ private struct GoalEditor: View {
         }
         .formStyle(.grouped)
         .padding(.top, 8)
+        .onAppear {
+            syncDraft(from: goal)
+        }
+        .onChange(of: focusedField) { oldValue, newValue in
+            if oldValue != nil && newValue == nil {
+                saveDraft()
+            }
+        }
     }
 
-    private var titleBinding: Binding<String> {
-        Binding(
-            get: { store.goal(id: goal.id)?.title ?? goal.title },
-            set: { value in
-                if let current = store.goal(id: goal.id) {
-                    store.updateGoal(current, title: value)
-                }
-            }
-        )
+    private func syncDraft(from goal: Goal) {
+        let current = store.goal(id: goal.id) ?? goal
+        draftTitle = current.title
+        draftNote = current.note
     }
 
-    private var noteBinding: Binding<String> {
-        Binding(
-            get: { store.goal(id: goal.id)?.note ?? goal.note },
-            set: { value in
-                if let current = store.goal(id: goal.id) {
-                    store.updateGoal(current, note: value)
-                }
-            }
-        )
+    private func saveDraft() {
+        guard let current = store.goal(id: goal.id) else { return }
+        if current.title != draftTitle || current.note != draftNote {
+            store.updateGoal(current, title: draftTitle, note: draftNote)
+        }
     }
 }
