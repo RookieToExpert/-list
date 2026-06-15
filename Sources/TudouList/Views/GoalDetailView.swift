@@ -40,7 +40,7 @@ private struct GoalEditor: View {
                     .frame(minHeight: 150)
                     .scrollContentBackground(.hidden)
             } header: {
-                Text(goal?.level.displayName ?? "目标")
+                Text(goal?.periodDisplayName ?? "目标")
             }
 
             Section("状态") {

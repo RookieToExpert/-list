@@ -31,17 +31,15 @@ struct GoalBoardView: View {
                 } else {
                     ScrollView {
                         LazyVStack(spacing: 8) {
-                            ForEach(store.orderedGoals(planListId: plan.id, parentId: nil)) { goal in
-                                GoalRowView(
-                                    goal: goal,
-                                    planListId: plan.id,
-                                    levelDepth: 0,
-                                    selectedGoalId: $selectedGoalId,
-                                    expandedGoalIds: $expandedGoalIds,
-                                    store: store,
-                                    onDelete: { deletingGoal = $0 }
-                                )
-                            }
+                            GoalSiblingRows(
+                                goals: store.orderedGoals(planListId: plan.id, parentId: nil),
+                                planListId: plan.id,
+                                levelDepth: 0,
+                                selectedGoalId: $selectedGoalId,
+                                expandedGoalIds: $expandedGoalIds,
+                                store: store,
+                                onDelete: { deletingGoal = $0 }
+                            )
                         }
                         .padding(20)
                     }
@@ -69,7 +67,7 @@ struct GoalBoardView: View {
                 } label: {
                     Label("新增下一级", systemImage: "arrow.down.right.circle")
                 }
-                .disabled(selectedGoal?.level.childLevel == nil)
+                .disabled(selectedGoal.map { store.allowedChildLevels(for: $0).isEmpty } ?? true)
             }
         }
         .confirmationDialog(
@@ -123,7 +121,7 @@ struct GoalBoardView: View {
 
     private func addYearGoal() {
         guard let plan else { return }
-        if let goal = store.createGoal(planListId: plan.id, parent: nil) {
+        if let goal = store.createGoal(planListId: plan.id, parent: nil, level: .year) {
             selectedGoalId = goal.id
             expandedGoalIds.insert(goal.id)
         }

@@ -40,28 +40,44 @@ final class PlanningStore: ObservableObject {
         saveNow()
     }
 
+    func allowedChildLevels(for parent: Goal?) -> [GoalLevel] {
+        guard let parent else { return [.year] }
+        switch parent.level {
+        case .year:
+            return [.month]
+        case .month:
+            return [.week, .day]
+        case .week:
+            return [.day]
+        case .day:
+            return []
+        }
+    }
+
     func createGoal(
         planListId: UUID,
         parent: Goal?,
+        level requestedLevel: GoalLevel? = nil,
         title: String? = nil
     ) -> Goal? {
-        let level: GoalLevel
-        if let parent {
-            guard let childLevel = parent.level.childLevel else { return nil }
-            level = childLevel
-        } else {
-            level = .year
-        }
+        let allowedLevels = allowedChildLevels(for: parent)
+        guard let level = requestedLevel ?? allowedLevels.first,
+              allowedLevels.contains(level)
+        else { return nil }
 
+        let now = Date()
         let siblings = goals.filter {
             $0.planListId == planListId && $0.parentId == parent?.id && $0.level == level
         }
         let nextOrder = (siblings.map(\.sortOrder).max() ?? 0) + 1
+        let fallbackTitle = defaultTitle(for: level, date: now)
         let goal = Goal(
             planListId: planListId,
             parentId: parent?.id,
-            title: cleaned(title ?? defaultTitle(for: level), fallback: defaultTitle(for: level)),
+            title: cleaned(title ?? fallbackTitle, fallback: fallbackTitle),
             level: level,
+            createdAt: now,
+            updatedAt: now,
             sortOrder: nextOrder
         )
         goals.append(goal)
@@ -149,12 +165,23 @@ final class PlanningStore: ObservableObject {
         return trimmed.isEmpty ? fallback : trimmed
     }
 
-    private func defaultTitle(for level: GoalLevel) -> String {
+    private func defaultTitle(for level: GoalLevel, date: Date) -> String {
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.year, .month, .day], from: date)
+        let year = components.year ?? 0
+        let month = components.month ?? 1
+        let day = components.day ?? 1
+
         switch level {
-        case .year: "新的年目标"
-        case .month: "新的月目标"
-        case .week: "新的周目标"
-        case .day: "新的日目标"
+        case .year:
+            return "\(year) 年目标"
+        case .month:
+            return "\(month) 月目标"
+        case .week:
+            let weekOfMonth = ((day - 1) / 7) + 1
+            return "第 \(weekOfMonth) 周目标"
+        case .day:
+            return "\(month) 月 \(day) 日目标"
         }
     }
 
