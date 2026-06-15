@@ -43,12 +43,18 @@ private struct GoalEditor: View {
                     .onSubmit {
                         saveDraft()
                     }
+                    .onChange(of: draftTitle) { _, _ in
+                        saveDraft()
+                    }
 
                 TextEditor(text: $draftNote)
                     .font(.body)
                     .frame(minHeight: 150)
                     .scrollContentBackground(.hidden)
                     .focused($focusedField, equals: .note)
+                    .onChange(of: draftNote) { _, _ in
+                        saveDraft()
+                    }
             } header: {
                 Text(goal.level.displayName)
             }
