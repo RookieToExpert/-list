@@ -4,9 +4,9 @@ TudouList 是一个 macOS 原生 SwiftUI 计划表 / Todo / Goal Planning 应用
 
 ## 直接下载
 
-普通用户可以直接下载 DMG 安装包：
+普通用户可以从 GitHub Releases 直接下载 DMG 安装包：
 
-[下载 TudouList.dmg](https://github.com/RookieToExpert/todoulist/raw/main/Downloads/TudouList.dmg)
+[下载 TudouList.dmg](https://github.com/RookieToExpert/todoulist/releases/download/v1.0.0/TudouList.dmg)
 
 下载后双击打开 DMG，把 `TudouList.app` 拖到 `Applications` 即可安装。
 
