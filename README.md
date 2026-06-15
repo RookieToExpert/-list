@@ -13,9 +13,9 @@ swift run TudouList
 
 如果本机只有 Command Line Tools，且出现 SDK / Swift toolchain 不匹配错误，请安装完整 Xcode，或在 Xcode 设置中选择与当前 Swift 编译器匹配的 Command Line Tools。
 
-## 打包成可双击打开的 App
+## 打包成可拖拽安装的 macOS App
 
-可以运行下面的脚本生成 macOS App Bundle 和 zip 包：
+开发者运行下面的脚本生成发布用 DMG：
 
 ```bash
 ./package-app.sh
@@ -25,10 +25,10 @@ swift run TudouList
 
 ```text
 dist/TudouList.app
-dist/TudouList-macOS.zip
+dist/TudouList.dmg
 ```
 
-把 `dist/TudouList-macOS.zip` 上传到 GitHub Release 后，用户下载、解压，就可以像普通 App 一样双击打开。当前脚本使用 ad-hoc codesign，适合本地和内部测试；如果要让陌生用户下载后完全无 Gatekeeper 提示，需要 Apple Developer ID 签名并 notarize。
+把 `dist/TudouList.dmg` 上传到 GitHub Release。用户下载并打开 DMG 后，会看到 `TudouList.app` 和 `Applications`，把 App 拖到 Applications 即可安装。当前脚本使用 ad-hoc codesign，适合本地和内部测试；如果要让陌生用户下载后完全无 Gatekeeper 提示，需要 Apple Developer ID 签名并 notarize。
 
 ## 已实现功能
 

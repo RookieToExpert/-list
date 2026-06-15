@@ -6,13 +6,15 @@ BUNDLE_ID="com.rui.tudoulist"
 VERSION="1.0.0"
 BUILD_DIR="dist"
 APP_DIR="${BUILD_DIR}/${APP_NAME}.app"
-ZIP_PATH="${BUILD_DIR}/${APP_NAME}-macOS.zip"
+DMG_ROOT="${BUILD_DIR}/dmg-root"
+DMG_PATH="${BUILD_DIR}/${APP_NAME}.dmg"
 
 swift build -c release
 
-rm -rf "$APP_DIR" "$ZIP_PATH"
+rm -rf "$APP_DIR" "$DMG_ROOT" "$DMG_PATH"
 mkdir -p "$APP_DIR/Contents/MacOS"
 mkdir -p "$APP_DIR/Contents/Resources"
+mkdir -p "$DMG_ROOT"
 
 cp ".build/release/${APP_NAME}" "$APP_DIR/Contents/MacOS/${APP_NAME}"
 chmod +x "$APP_DIR/Contents/MacOS/${APP_NAME}"
@@ -49,9 +51,12 @@ PLIST
 
 codesign --force --deep --sign - "$APP_DIR"
 
-pushd "$BUILD_DIR" >/dev/null
-zip -qry "${APP_NAME}-macOS.zip" "${APP_NAME}.app"
-popd >/dev/null
+cp -R "$APP_DIR" "$DMG_ROOT/${APP_NAME}.app"
+ln -s /Applications "$DMG_ROOT/Applications"
+
+hdiutil create   -volname "$APP_NAME"   -srcfolder "$DMG_ROOT"   -ov   -format UDZO   "$DMG_PATH"
+
+rm -rf "$DMG_ROOT"
 
 echo "App bundle: $APP_DIR"
-echo "Download zip: $ZIP_PATH"
+echo "Installer DMG: $DMG_PATH"
