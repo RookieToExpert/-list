@@ -2,6 +2,14 @@
 
 TudouList 是一个 macOS 原生 SwiftUI 计划表 / Todo / Goal Planning 应用。它面向层级化目标管理，支持从「计划表」拆解到「年目标 -> 月目标 -> 周目标 -> 日目标」。
 
+## 直接下载
+
+普通用户可以直接下载 DMG 安装包：
+
+[下载 TudouList.dmg](https://github.com/RookieToExpert/-list/raw/main/Downloads/TudouList.dmg)
+
+下载后双击打开 DMG，把 `TudouList.app` 拖到 `Applications` 即可安装。
+
 ## 如何运行
 
 当前项目使用 Swift Package 形式组织，最低支持 macOS 14。当前开发环境缺少 SwiftData 宏插件，因此持久化采用 `Codable + JSON` 本地文件方案，数据保存到用户 Application Support 目录下的 `TudouList/store.json`。
@@ -13,9 +21,9 @@ swift run TudouList
 
 如果本机只有 Command Line Tools，且出现 SDK / Swift toolchain 不匹配错误，请安装完整 Xcode，或在 Xcode 设置中选择与当前 Swift 编译器匹配的 Command Line Tools。
 
-## 打包成可拖拽安装的 macOS App
+## 开发者打包
 
-开发者运行下面的脚本生成发布用 DMG：
+维护者运行下面的脚本生成发布用 DMG：
 
 ```bash
 ./package-app.sh
