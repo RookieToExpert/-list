@@ -8,6 +8,8 @@ BUILD_DIR="dist"
 APP_DIR="${BUILD_DIR}/${APP_NAME}.app"
 DMG_ROOT="${BUILD_DIR}/dmg-root"
 DMG_PATH="${BUILD_DIR}/${APP_NAME}.dmg"
+INSTALL_DIR="$HOME/Applications"
+INSTALLED_APP_DIR="${INSTALL_DIR}/${APP_NAME}.app"
 
 swift build -c release
 
@@ -15,6 +17,7 @@ rm -rf "$APP_DIR" "$DMG_ROOT" "$DMG_PATH"
 mkdir -p "$APP_DIR/Contents/MacOS"
 mkdir -p "$APP_DIR/Contents/Resources"
 mkdir -p "$DMG_ROOT"
+mkdir -p "$INSTALL_DIR"
 
 cp ".build/release/${APP_NAME}" "$APP_DIR/Contents/MacOS/${APP_NAME}"
 chmod +x "$APP_DIR/Contents/MacOS/${APP_NAME}"
@@ -51,6 +54,10 @@ PLIST
 
 codesign --force --deep --sign - "$APP_DIR"
 
+rm -rf "$INSTALLED_APP_DIR"
+cp -R "$APP_DIR" "$INSTALLED_APP_DIR"
+codesign --verify --deep --strict "$INSTALLED_APP_DIR"
+
 cp -R "$APP_DIR" "$DMG_ROOT/${APP_NAME}.app"
 ln -s /Applications "$DMG_ROOT/Applications"
 
@@ -58,5 +65,10 @@ hdiutil create   -volname "$APP_NAME"   -srcfolder "$DMG_ROOT"   -ov   -format U
 
 rm -rf "$DMG_ROOT"
 
+open "$INSTALLED_APP_DIR"
+sleep 0.3
+osascript -e "tell application \"${APP_NAME}\" to activate"
+
 echo "App bundle: $APP_DIR"
+echo "Installed app: $INSTALLED_APP_DIR"
 echo "Installer DMG: $DMG_PATH"

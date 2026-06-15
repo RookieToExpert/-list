@@ -7,6 +7,8 @@ final class PlanningStore: ObservableObject {
     @Published private(set) var goals: [Goal] = []
 
     private let storeURL: URL
+    private let saveDebounceDelay: TimeInterval = 0.35
+    private var pendingSaveWorkItem: DispatchWorkItem?
 
     init(storeURL: URL? = nil) {
         self.storeURL = storeURL ?? Self.defaultStoreURL()
@@ -16,7 +18,7 @@ final class PlanningStore: ObservableObject {
     func createPlanList(name: String, description: String = "") -> PlanList {
         let plan = PlanList(name: cleaned(name, fallback: "新的计划表"), descriptionText: description)
         planLists.append(plan)
-        save()
+        saveNow()
         return plan
     }
 
@@ -29,13 +31,13 @@ final class PlanningStore: ObservableObject {
             planLists[index].descriptionText = description
         }
         planLists[index].updatedAt = .now
-        save()
+        saveNow()
     }
 
     func deletePlanList(_ plan: PlanList) {
         goals.removeAll { $0.planListId == plan.id }
         planLists.removeAll { $0.id == plan.id }
-        save()
+        saveNow()
     }
 
     func createGoal(
@@ -66,7 +68,7 @@ final class PlanningStore: ObservableObject {
         if let parent, let parentIndex = goals.firstIndex(where: { $0.id == parent.id }) {
             goals[parentIndex].updatedAt = .now
         }
-        save()
+        saveNow()
         return goal
     }
 
@@ -74,23 +76,25 @@ final class PlanningStore: ObservableObject {
         updateGoal(id: goal.id, title: title, note: note)
     }
 
-    func updateGoal(id: UUID, title: String? = nil, note: String? = nil) {
+    func updateGoal(id: UUID, title: String? = nil, note: String? = nil, flush: Bool = false) {
         guard let index = goals.firstIndex(where: { $0.id == id }) else { return }
+        var updatedGoal = goals[index]
         var didChange = false
         if let title {
-            let nextTitle = cleaned(title, fallback: goals[index].title)
-            if goals[index].title != nextTitle {
-                goals[index].title = nextTitle
+            let nextTitle = cleaned(title, fallback: updatedGoal.title)
+            if updatedGoal.title != nextTitle {
+                updatedGoal.title = nextTitle
                 didChange = true
             }
         }
-        if let note, goals[index].note != note {
-            goals[index].note = note
+        if let note, updatedGoal.note != note {
+            updatedGoal.note = note
             didChange = true
         }
         guard didChange else { return }
-        goals[index].updatedAt = .now
-        save()
+        updatedGoal.updatedAt = .now
+        goals[index] = updatedGoal
+        flush ? saveNow() : scheduleSave()
     }
 
     func setCompleted(_ goal: Goal, isCompleted: Bool) {
@@ -98,20 +102,20 @@ final class PlanningStore: ObservableObject {
         goals[index].isCompleted = isCompleted
         goals[index].completedAt = isCompleted ? .now : nil
         goals[index].updatedAt = .now
-        save()
+        saveNow()
     }
 
     func toggleUrgent(_ goal: Goal) {
         guard let index = goals.firstIndex(where: { $0.id == goal.id }) else { return }
         goals[index].isUrgent.toggle()
         goals[index].updatedAt = .now
-        save()
+        saveNow()
     }
 
     func deleteGoal(_ goal: Goal) {
         let deleteIds = Set(([goal] + descendantGoals(of: goal.id, in: goals)).map(\.id))
         goals.removeAll { deleteIds.contains($0.id) }
-        save()
+        saveNow()
     }
 
     func goal(id: UUID?) -> Goal? {
@@ -170,7 +174,26 @@ final class PlanningStore: ObservableObject {
         }
     }
 
-    private func save() {
+    func flushSave() {
+        pendingSaveWorkItem?.cancel()
+        pendingSaveWorkItem = nil
+        saveNow()
+    }
+
+    private func scheduleSave() {
+        pendingSaveWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            Task { @MainActor in
+                self?.saveNow()
+            }
+        }
+        pendingSaveWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + saveDebounceDelay, execute: workItem)
+    }
+
+    private func saveNow() {
+        pendingSaveWorkItem?.cancel()
+        pendingSaveWorkItem = nil
         do {
             try FileManager.default.createDirectory(
                 at: storeURL.deletingLastPathComponent(),

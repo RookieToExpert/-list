@@ -1,14 +1,13 @@
 import SwiftUI
 
 struct GoalDetailView: View {
-    let goal: Goal?
+    let goalID: UUID?
     @ObservedObject var store: PlanningStore
 
     var body: some View {
         Group {
-            if let goal {
-                GoalEditor(goal: goal, store: store)
-                    .id(goal.id)
+            if let goalID, store.goal(id: goalID) != nil {
+                GoalEditor(goalID: goalID, store: store)
             } else {
                 EmptyStateView(
                     systemImage: "square.and.pencil",
@@ -22,62 +21,50 @@ struct GoalDetailView: View {
 }
 
 private struct GoalEditor: View {
-    let goal: Goal
+    let goalID: UUID
     @ObservedObject var store: PlanningStore
-    @State private var draftTitle: String
-    @State private var draftNote: String
 
-    init(goal: Goal, store: PlanningStore) {
-        self.goal = goal
-        self.store = store
-        let current = store.goal(id: goal.id) ?? goal
-        _draftTitle = State(initialValue: current.title)
-        _draftNote = State(initialValue: current.note)
+    private var goal: Goal? {
+        store.goal(id: goalID)
     }
 
     var body: some View {
         Form {
             Section {
-                TextField("标题", text: $draftTitle, axis: .vertical)
+                TextField("标题", text: titleBinding, axis: .vertical)
                     .font(.title3.weight(.semibold))
                     .lineLimit(1...3)
-                    .onChange(of: draftTitle) { _, newValue in
-                        store.updateGoal(id: goal.id, title: newValue)
-                    }
 
-                TextEditor(text: $draftNote)
+                TextEditor(text: noteBinding)
                     .font(.body)
                     .frame(minHeight: 150)
                     .scrollContentBackground(.hidden)
-                    .onChange(of: draftNote) { _, newValue in
-                        store.updateGoal(id: goal.id, note: newValue)
-                    }
             } header: {
-                Text(goal.level.displayName)
+                Text(goal?.level.displayName ?? "目标")
             }
 
             Section("状态") {
                 Toggle("已完成", isOn: Binding(
-                    get: { store.goal(id: goal.id)?.isCompleted ?? goal.isCompleted },
+                    get: { goal?.isCompleted ?? false },
                     set: { value in
-                        saveDraft()
-                        if let current = store.goal(id: goal.id) {
-                            store.setCompleted(current, isCompleted: value)
+                        store.flushSave()
+                        if let goal {
+                            store.setCompleted(goal, isCompleted: value)
                         }
                     }
                 ))
 
                 Toggle("加急", isOn: Binding(
-                    get: { store.goal(id: goal.id)?.isUrgent ?? goal.isUrgent },
+                    get: { goal?.isUrgent ?? false },
                     set: { _ in
-                        saveDraft()
-                        if let current = store.goal(id: goal.id) {
-                            store.toggleUrgent(current)
+                        store.flushSave()
+                        if let goal {
+                            store.toggleUrgent(goal)
                         }
                     }
                 ))
 
-                if let completedAt = store.goal(id: goal.id)?.completedAt ?? goal.completedAt {
+                if let completedAt = goal?.completedAt {
                     LabeledContent("完成时间") {
                         Text(completedAt.formatted(date: .abbreviated, time: .shortened))
                             .foregroundStyle(.secondary)
@@ -86,24 +73,36 @@ private struct GoalEditor: View {
             }
 
             Section("元信息") {
-                LabeledContent("创建时间") {
-                    Text(goal.createdAt.formatted(date: .abbreviated, time: .shortened))
-                        .foregroundStyle(.secondary)
-                }
-                LabeledContent("更新时间") {
-                    Text((store.goal(id: goal.id)?.updatedAt ?? goal.updatedAt).formatted(date: .abbreviated, time: .shortened))
-                        .foregroundStyle(.secondary)
+                if let goal {
+                    LabeledContent("创建时间") {
+                        Text(goal.createdAt.formatted(date: .abbreviated, time: .shortened))
+                            .foregroundStyle(.secondary)
+                    }
+                    LabeledContent("更新时间") {
+                        Text(goal.updatedAt.formatted(date: .abbreviated, time: .shortened))
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
         }
         .formStyle(.grouped)
         .padding(.top, 8)
         .onDisappear {
-            saveDraft()
+            store.flushSave()
         }
     }
 
-    private func saveDraft() {
-        store.updateGoal(id: goal.id, title: draftTitle, note: draftNote)
+    private var titleBinding: Binding<String> {
+        Binding(
+            get: { goal?.title ?? "" },
+            set: { store.updateGoal(id: goalID, title: $0) }
+        )
+    }
+
+    private var noteBinding: Binding<String> {
+        Binding(
+            get: { goal?.note ?? "" },
+            set: { store.updateGoal(id: goalID, note: $0) }
+        )
     }
 }

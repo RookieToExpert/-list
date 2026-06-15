@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ContentView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var store = PlanningStore()
     @State private var selectedPlanId: UUID?
     @State private var selectedGoalId: UUID?
@@ -13,10 +14,6 @@ struct ContentView: View {
     private var selectedPlan: PlanList? {
         guard let selectedPlanId else { return nil }
         return store.planLists.first { $0.id == selectedPlanId }
-    }
-
-    private var selectedGoal: Goal? {
-        store.goal(id: selectedGoalId)
     }
 
     var body: some View {
@@ -45,7 +42,7 @@ struct ContentView: View {
             )
             .navigationSplitViewColumnWidth(min: 460, ideal: 620)
         } detail: {
-            GoalDetailView(goal: selectedGoal, store: store)
+            GoalDetailView(goalID: selectedGoalId, store: store)
                 .navigationSplitViewColumnWidth(min: 300, ideal: 360, max: 460)
         }
         .frame(minWidth: 980, minHeight: 620)
@@ -61,7 +58,16 @@ struct ContentView: View {
             }
         }
         .onChange(of: selectedPlanId) {
+            store.flushSave()
             selectedGoalId = nil
+        }
+        .onChange(of: selectedGoalId) {
+            store.flushSave()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active {
+                store.flushSave()
+            }
         }
         .alert("新建计划表", isPresented: $showingNewPlan) {
             TextField("计划表名称", text: $newPlanName)
