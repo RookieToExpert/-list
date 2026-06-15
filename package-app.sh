@@ -3,7 +3,7 @@ set -euo pipefail
 
 APP_NAME="TudouList"
 BUNDLE_ID="com.rui.tudoulist"
-VERSION="1.0.0"
+VERSION="1.0.1"
 BUILD_DIR="dist"
 APP_DIR="${BUILD_DIR}/${APP_NAME}.app"
 DMG_ROOT="${BUILD_DIR}/dmg-root"

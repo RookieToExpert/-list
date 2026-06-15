@@ -71,13 +71,24 @@ final class PlanningStore: ObservableObject {
     }
 
     func updateGoal(_ goal: Goal, title: String? = nil, note: String? = nil) {
-        guard let index = goals.firstIndex(where: { $0.id == goal.id }) else { return }
+        updateGoal(id: goal.id, title: title, note: note)
+    }
+
+    func updateGoal(id: UUID, title: String? = nil, note: String? = nil) {
+        guard let index = goals.firstIndex(where: { $0.id == id }) else { return }
+        var didChange = false
         if let title {
-            goals[index].title = cleaned(title, fallback: goals[index].title)
+            let nextTitle = cleaned(title, fallback: goals[index].title)
+            if goals[index].title != nextTitle {
+                goals[index].title = nextTitle
+                didChange = true
+            }
         }
-        if let note {
+        if let note, goals[index].note != note {
             goals[index].note = note
+            didChange = true
         }
+        guard didChange else { return }
         goals[index].updatedAt = .now
         save()
     }

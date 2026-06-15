@@ -24,13 +24,15 @@ struct GoalDetailView: View {
 private struct GoalEditor: View {
     let goal: Goal
     @ObservedObject var store: PlanningStore
-    @State private var draftTitle = ""
-    @State private var draftNote = ""
-    @FocusState private var focusedField: Field?
+    @State private var draftTitle: String
+    @State private var draftNote: String
 
-    private enum Field {
-        case title
-        case note
+    init(goal: Goal, store: PlanningStore) {
+        self.goal = goal
+        self.store = store
+        let current = store.goal(id: goal.id) ?? goal
+        _draftTitle = State(initialValue: current.title)
+        _draftNote = State(initialValue: current.note)
     }
 
     var body: some View {
@@ -39,21 +41,16 @@ private struct GoalEditor: View {
                 TextField("标题", text: $draftTitle, axis: .vertical)
                     .font(.title3.weight(.semibold))
                     .lineLimit(1...3)
-                    .focused($focusedField, equals: .title)
-                    .onSubmit {
-                        saveDraft()
-                    }
-                    .onChange(of: draftTitle) { _, _ in
-                        saveDraft()
+                    .onChange(of: draftTitle) { _, newValue in
+                        store.updateGoal(id: goal.id, title: newValue)
                     }
 
                 TextEditor(text: $draftNote)
                     .font(.body)
                     .frame(minHeight: 150)
                     .scrollContentBackground(.hidden)
-                    .focused($focusedField, equals: .note)
-                    .onChange(of: draftNote) { _, _ in
-                        saveDraft()
+                    .onChange(of: draftNote) { _, newValue in
+                        store.updateGoal(id: goal.id, note: newValue)
                     }
             } header: {
                 Text(goal.level.displayName)
@@ -101,26 +98,12 @@ private struct GoalEditor: View {
         }
         .formStyle(.grouped)
         .padding(.top, 8)
-        .onAppear {
-            syncDraft(from: goal)
+        .onDisappear {
+            saveDraft()
         }
-        .onChange(of: focusedField) { oldValue, newValue in
-            if oldValue != nil && newValue == nil {
-                saveDraft()
-            }
-        }
-    }
-
-    private func syncDraft(from goal: Goal) {
-        let current = store.goal(id: goal.id) ?? goal
-        draftTitle = current.title
-        draftNote = current.note
     }
 
     private func saveDraft() {
-        guard let current = store.goal(id: goal.id) else { return }
-        if current.title != draftTitle || current.note != draftNote {
-            store.updateGoal(current, title: draftTitle, note: draftNote)
-        }
+        store.updateGoal(id: goal.id, title: draftTitle, note: draftNote)
     }
 }
