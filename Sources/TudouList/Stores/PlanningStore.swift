@@ -114,10 +114,12 @@ final class PlanningStore: ObservableObject {
     }
 
     func setCompleted(_ goal: Goal, isCompleted: Bool) {
-        guard let index = goals.firstIndex(where: { $0.id == goal.id }) else { return }
-        goals[index].isCompleted = isCompleted
-        goals[index].completedAt = isCompleted ? .now : nil
-        goals[index].updatedAt = .now
+        if isCompleted {
+            completeGoalAndDescendants(goal.id, completedAt: .now)
+        } else {
+            // TODO: Offer an option to also uncomplete descendants when reopening a parent goal.
+            uncompleteGoalOnly(goal.id)
+        }
         saveNow()
     }
 
@@ -250,6 +252,31 @@ final class PlanningStore: ObservableObject {
         if lhs.isCompleted != rhs.isCompleted { return !lhs.isCompleted && rhs.isCompleted }
         if lhs.updatedAt != rhs.updatedAt { return lhs.updatedAt > rhs.updatedAt }
         return lhs.createdAt > rhs.createdAt
+    }
+
+    private func completeGoalAndDescendants(_ goalId: UUID, completedAt: Date) {
+        guard let index = goals.firstIndex(where: { $0.id == goalId }) else { return }
+
+        if !goals[index].isCompleted {
+            goals[index].isCompleted = true
+            goals[index].completedAt = completedAt
+            goals[index].updatedAt = completedAt
+        }
+
+        let childIds = goals
+            .filter { $0.parentId == goalId }
+            .map(\.id)
+
+        for childId in childIds {
+            completeGoalAndDescendants(childId, completedAt: completedAt)
+        }
+    }
+
+    private func uncompleteGoalOnly(_ goalId: UUID) {
+        guard let index = goals.firstIndex(where: { $0.id == goalId }) else { return }
+        goals[index].isCompleted = false
+        goals[index].completedAt = nil
+        goals[index].updatedAt = .now
     }
 
     private func descendantGoals(of parentId: UUID, in goals: [Goal]) -> [Goal] {

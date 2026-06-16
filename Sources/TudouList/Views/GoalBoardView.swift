@@ -3,9 +3,9 @@ import SwiftUI
 struct GoalBoardView: View {
     let plan: PlanList?
     @Binding var selectedGoalId: UUID?
+    @Binding var expandedGoalIds: Set<UUID>
     @ObservedObject var store: PlanningStore
 
-    @State private var expandedGoalIds: Set<UUID> = []
     @State private var deletingGoal: Goal?
 
     private var planGoals: [Goal] {
@@ -82,6 +82,7 @@ struct GoalBoardView: View {
             Button("删除", role: .destructive) {
                 if let deletingGoal {
                     store.deleteGoal(deletingGoal)
+                    expandedGoalIds.remove(deletingGoal.id)
                     if selectedGoalId == deletingGoal.id {
                         selectedGoalId = nil
                     }

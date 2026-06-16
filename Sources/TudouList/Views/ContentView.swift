@@ -2,9 +2,11 @@ import SwiftUI
 
 struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
+    @AppStorage("expandedGoalIdsByPlanList") private var persistedExpandedGoalIds = "{}"
     @StateObject private var store = PlanningStore()
     @State private var sidebarSelection: SidebarSelection?
     @State private var selectedGoalId: UUID?
+    @State private var expandedGoalIdsByPlanList: [UUID: Set<UUID>] = [:]
     @State private var newPlanName = ""
     @State private var showingNewPlan = false
     @State private var renamingPlan: PlanList?
@@ -51,6 +53,7 @@ struct ContentView: View {
                 GoalBoardView(
                     plan: selectedPlan,
                     selectedGoalId: $selectedGoalId,
+                    expandedGoalIds: expandedGoalIdsBinding(for: selectedPlan?.id),
                     store: store
                 )
                 .navigationSplitViewColumnWidth(min: 460, ideal: 620)
@@ -61,6 +64,7 @@ struct ContentView: View {
         }
         .frame(minWidth: 980, minHeight: 620)
         .onAppear {
+            expandedGoalIdsByPlanList = decodeExpandedGoalIds(from: persistedExpandedGoalIds)
             sidebarSelection = sidebarSelection ?? .overview(.todayFocus)
         }
         .onChange(of: store.planLists.map(\.id)) { _, ids in
@@ -119,6 +123,8 @@ struct ContentView: View {
             Button("删除", role: .destructive) {
                 if let deletingPlan {
                     store.deletePlanList(deletingPlan)
+                    expandedGoalIdsByPlanList[deletingPlan.id] = nil
+                    persistExpandedGoalIds()
                     if sidebarSelection == .planList(deletingPlan.id) {
                         sidebarSelection = store.planLists.first.map { .planList($0.id) } ?? .overview(.todayFocus)
                     }
@@ -133,4 +139,40 @@ struct ContentView: View {
             Text("该计划表中的所有目标都会被删除。")
         }
     }
+    private func expandedGoalIdsBinding(for planId: UUID?) -> Binding<Set<UUID>> {
+        Binding(
+            get: {
+                guard let planId else { return [] }
+                return expandedGoalIdsByPlanList[planId] ?? []
+            },
+            set: { newValue in
+                guard let planId else { return }
+                expandedGoalIdsByPlanList[planId] = newValue
+                persistExpandedGoalIds()
+            }
+        )
+    }
+
+    private func persistExpandedGoalIds() {
+        let snapshot = expandedGoalIdsByPlanList.reduce(into: [String: [String]]()) { result, item in
+            result[item.key.uuidString] = item.value.map(\.uuidString).sorted()
+        }
+        guard let data = try? JSONEncoder().encode(snapshot),
+              let value = String(data: data, encoding: .utf8)
+        else { return }
+        persistedExpandedGoalIds = value
+    }
+
+    private func decodeExpandedGoalIds(from value: String) -> [UUID: Set<UUID>] {
+        guard let data = value.data(using: .utf8),
+              let snapshot = try? JSONDecoder().decode([String: [String]].self, from: data)
+        else { return [:] }
+
+        return snapshot.reduce(into: [UUID: Set<UUID>]()) { result, item in
+            guard let planId = UUID(uuidString: item.key) else { return }
+            let goalIds = item.value.compactMap(UUID.init(uuidString:))
+            result[planId] = Set(goalIds)
+        }
+    }
+
 }
