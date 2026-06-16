@@ -173,20 +173,8 @@ struct GoalRowView: View {
     }
 
     private func completionText(for date: Date) -> String {
-        let calendar = Calendar.current
-        let components = calendar.dateComponents([.month, .day, .hour, .minute], from: date)
-        let hour = components.hour ?? 0
-        let minute = components.minute ?? 0
-        if calendar.isDateInToday(date) {
-            return String(format: "已完成 %02d:%02d", hour, minute)
-        }
-        return String(
-            format: "%02d-%02d %02d:%02d",
-            components.month ?? 1,
-            components.day ?? 1,
-            hour,
-            minute
-        )
+        let components = Calendar.current.dateComponents([.month, .day], from: date)
+        return String(format: "已完成 %02d-%02d", components.month ?? 1, components.day ?? 1)
     }
 
     private func toggleExpansion() {

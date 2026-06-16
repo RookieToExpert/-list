@@ -155,6 +155,103 @@ final class PlanningStore: ObservableObject {
         goals.contains { $0.parentId == goal.id }
     }
 
+    func goalsForOverview(_ kind: OverviewKind) -> [Goal] {
+        switch kind {
+        case .todayFocus:
+            // TODO: Add scheduledDate/dueDate later for a true today view.
+            let urgentGoals = goals
+                .filter { !$0.isCompleted && $0.isUrgent }
+                .sorted(by: overviewRecentSort)
+            let urgentIds = Set(urgentGoals.map(\.id))
+            let recentGoals = goals
+                .filter { !$0.isCompleted && !urgentIds.contains($0.id) }
+                .sorted(by: overviewRecentSort)
+                .prefix(10)
+            return urgentGoals + Array(recentGoals)
+        case .thisWeek:
+            let weekGoalIds = Set(goals.filter { $0.level == .week }.map(\.id))
+            return goals
+                .filter { goal in
+                    goal.level == .week || goal.parentId.map { weekGoalIds.contains($0) } == true
+                }
+                .sorted(by: overviewCompletionThenRecentSort)
+        case .urgent:
+            return goals
+                .filter(\.isUrgent)
+                .sorted(by: overviewCompletionThenRecentSort)
+        case .all:
+            return goals.sorted { lhs, rhs in
+                let lhsPlanIndex = planIndex(for: lhs.planListId)
+                let rhsPlanIndex = planIndex(for: rhs.planListId)
+                if lhsPlanIndex != rhsPlanIndex { return lhsPlanIndex < rhsPlanIndex }
+                if lhs.isUrgent != rhs.isUrgent { return lhs.isUrgent && !rhs.isUrgent }
+                if lhs.isCompleted != rhs.isCompleted { return !lhs.isCompleted && rhs.isCompleted }
+                if lhs.sortOrder != rhs.sortOrder { return lhs.sortOrder < rhs.sortOrder }
+                return lhs.createdAt < rhs.createdAt
+            }
+        case .completed:
+            return goals
+                .filter(\.isCompleted)
+                .sorted { lhs, rhs in
+                    switch (lhs.completedAt, rhs.completedAt) {
+                    case let (lhsDate?, rhsDate?):
+                        return lhsDate > rhsDate
+                    case (.some, .none):
+                        return true
+                    case (.none, .some):
+                        return false
+                    case (.none, .none):
+                        return lhs.updatedAt > rhs.updatedAt
+                    }
+                }
+        }
+    }
+
+    func overviewStats(for kind: OverviewKind) -> OverviewStats {
+        let visibleGoals = goalsForOverview(kind)
+        return OverviewStats(
+            incompleteCount: visibleGoals.filter { !$0.isCompleted }.count,
+            urgentCount: visibleGoals.filter(\.isUrgent).count,
+            completedCount: visibleGoals.filter(\.isCompleted).count,
+            planListCount: planLists.count
+        )
+    }
+
+    func planListName(for goal: Goal) -> String {
+        planLists.first { $0.id == goal.planListId }?.name ?? "未知计划表"
+    }
+
+    func goalPath(for goal: Goal) -> String {
+        var path: [String] = []
+        var currentParentId = goal.parentId
+        var visitedIds = Set<UUID>()
+
+        while let parentId = currentParentId, !visitedIds.contains(parentId) {
+            visitedIds.insert(parentId)
+            guard let parent = goals.first(where: { $0.id == parentId }) else { break }
+            path.insert(parent.title, at: 0)
+            currentParentId = parent.parentId
+        }
+
+        let planName = planListName(for: goal)
+        return ([planName] + path).joined(separator: " / ")
+    }
+
+    private func planIndex(for planListId: UUID) -> Int {
+        planLists.firstIndex { $0.id == planListId } ?? Int.max
+    }
+
+    private func overviewRecentSort(_ lhs: Goal, _ rhs: Goal) -> Bool {
+        if lhs.updatedAt != rhs.updatedAt { return lhs.updatedAt > rhs.updatedAt }
+        return lhs.createdAt > rhs.createdAt
+    }
+
+    private func overviewCompletionThenRecentSort(_ lhs: Goal, _ rhs: Goal) -> Bool {
+        if lhs.isCompleted != rhs.isCompleted { return !lhs.isCompleted && rhs.isCompleted }
+        if lhs.updatedAt != rhs.updatedAt { return lhs.updatedAt > rhs.updatedAt }
+        return lhs.createdAt > rhs.createdAt
+    }
+
     private func descendantGoals(of parentId: UUID, in goals: [Goal]) -> [Goal] {
         let children = goals.filter { $0.parentId == parentId }
         return children + children.flatMap { descendantGoals(of: $0.id, in: goals) }

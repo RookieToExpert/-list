@@ -3,7 +3,7 @@ import SwiftUI
 struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @StateObject private var store = PlanningStore()
-    @State private var selectedPlanId: UUID?
+    @State private var sidebarSelection: SidebarSelection?
     @State private var selectedGoalId: UUID?
     @State private var newPlanName = ""
     @State private var showingNewPlan = false
@@ -12,15 +12,20 @@ struct ContentView: View {
     @State private var deletingPlan: PlanList?
 
     private var selectedPlan: PlanList? {
-        guard let selectedPlanId else { return nil }
-        return store.planLists.first { $0.id == selectedPlanId }
+        guard case let .planList(planId) = sidebarSelection else { return nil }
+        return store.planLists.first { $0.id == planId }
+    }
+
+    private var selectedOverview: OverviewKind? {
+        guard case let .overview(kind) = sidebarSelection else { return nil }
+        return kind
     }
 
     var body: some View {
         NavigationSplitView {
             PlanSidebarView(
                 planLists: store.planLists,
-                selectedPlanId: $selectedPlanId,
+                selection: $sidebarSelection,
                 onAdd: {
                     newPlanName = ""
                     showingNewPlan = true
@@ -35,29 +40,38 @@ struct ContentView: View {
             )
             .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 320)
         } content: {
-            GoalBoardView(
-                plan: selectedPlan,
-                selectedGoalId: $selectedGoalId,
-                store: store
-            )
-            .navigationSplitViewColumnWidth(min: 460, ideal: 620)
+            if let selectedOverview {
+                OverviewContentView(
+                    kind: selectedOverview,
+                    selectedGoalId: $selectedGoalId,
+                    store: store
+                )
+                .navigationSplitViewColumnWidth(min: 460, ideal: 620)
+            } else {
+                GoalBoardView(
+                    plan: selectedPlan,
+                    selectedGoalId: $selectedGoalId,
+                    store: store
+                )
+                .navigationSplitViewColumnWidth(min: 460, ideal: 620)
+            }
         } detail: {
             GoalDetailView(goalID: selectedGoalId, store: store)
                 .navigationSplitViewColumnWidth(min: 300, ideal: 360, max: 460)
         }
         .frame(minWidth: 980, minHeight: 620)
         .onAppear {
-            selectedPlanId = selectedPlanId ?? store.planLists.first?.id
+            sidebarSelection = sidebarSelection ?? .overview(.todayFocus)
         }
         .onChange(of: store.planLists.map(\.id)) { _, ids in
-            if selectedPlanId == nil {
-                selectedPlanId = ids.first
-            } else if let selectedPlanId, !ids.contains(selectedPlanId) {
-                self.selectedPlanId = ids.first
+            if sidebarSelection == nil {
+                sidebarSelection = .overview(.todayFocus)
+            } else if case let .planList(planId) = sidebarSelection, !ids.contains(planId) {
+                sidebarSelection = ids.first.map(SidebarSelection.planList) ?? .overview(.todayFocus)
                 selectedGoalId = nil
             }
         }
-        .onChange(of: selectedPlanId) {
+        .onChange(of: sidebarSelection) {
             store.flushSave()
             selectedGoalId = nil
         }
@@ -73,7 +87,7 @@ struct ContentView: View {
             TextField("计划表名称", text: $newPlanName)
             Button("创建") {
                 let plan = store.createPlanList(name: newPlanName)
-                selectedPlanId = plan.id
+                sidebarSelection = .planList(plan.id)
             }
             Button("取消", role: .cancel) {}
         } message: {
@@ -105,8 +119,8 @@ struct ContentView: View {
             Button("删除", role: .destructive) {
                 if let deletingPlan {
                     store.deletePlanList(deletingPlan)
-                    if selectedPlanId == deletingPlan.id {
-                        selectedPlanId = store.planLists.first?.id
+                    if sidebarSelection == .planList(deletingPlan.id) {
+                        sidebarSelection = store.planLists.first.map { .planList($0.id) } ?? .overview(.todayFocus)
                     }
                     selectedGoalId = nil
                 }

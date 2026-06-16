@@ -2,14 +2,21 @@ import SwiftUI
 
 struct PlanSidebarView: View {
     let planLists: [PlanList]
-    @Binding var selectedPlanId: UUID?
+    @Binding var selection: SidebarSelection?
     let onAdd: () -> Void
     let onRename: (PlanList) -> Void
     let onDelete: (PlanList) -> Void
 
     var body: some View {
         VStack(spacing: 0) {
-            List(selection: $selectedPlanId) {
+            List(selection: $selection) {
+                Section("总览") {
+                    ForEach(OverviewKind.allCases) { kind in
+                        Label(kind.title, systemImage: kind.systemImage)
+                            .tag(SidebarSelection.overview(kind))
+                    }
+                }
+
                 Section("计划表") {
                     ForEach(planLists) { plan in
                         Label {
@@ -28,7 +35,7 @@ struct PlanSidebarView: View {
                             Image(systemName: "rectangle.stack")
                                 .foregroundStyle(.secondary)
                         }
-                        .tag(plan.id)
+                        .tag(SidebarSelection.planList(plan.id))
                         .contextMenu {
                             Button("重命名") {
                                 onRename(plan)
