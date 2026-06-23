@@ -84,6 +84,7 @@ final class PlanningStore: ObservableObject {
         if let parent, let parentIndex = goals.firstIndex(where: { $0.id == parent.id }) {
             goals[parentIndex].updatedAt = .now
         }
+        validateGoalTree(context: "createGoal")
         saveNow()
         return goal
     }
@@ -278,6 +279,22 @@ final class PlanningStore: ObservableObject {
     private func cleaned(_ value: String, fallback: String) -> String {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? fallback : trimmed
+    }
+
+    private func validateGoalTree(context: String) {
+#if DEBUG
+        let ids = goals.map(\.id)
+        if Set(ids).count != ids.count {
+            assertionFailure("Duplicate goal ids found after \(context)")
+        }
+
+        for goal in goals {
+            if let parentId = goal.parentId,
+               !goals.contains(where: { $0.id == parentId }) {
+                assertionFailure("Missing parent \(parentId) for goal \(goal.id) after \(context)")
+            }
+        }
+#endif
     }
 
     private func defaultTitle(for level: GoalLevel, date: Date) -> String {

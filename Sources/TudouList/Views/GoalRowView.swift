@@ -259,6 +259,7 @@ struct GoalSiblingRows: View {
 
 private struct GoalPeriodSection: Identifiable {
     let id: String
+    let periodKey: String
     let displayName: String
     let systemImage: String
     var goals: [Goal]
@@ -266,12 +267,13 @@ private struct GoalPeriodSection: Identifiable {
     static func makeSections(from goals: [Goal]) -> [GoalPeriodSection] {
         goals.reduce(into: []) { sections, goal in
             if let lastIndex = sections.indices.last,
-               sections[lastIndex].id == goal.periodDisplayKey {
+               sections[lastIndex].periodKey == goal.periodDisplayKey {
                 sections[lastIndex].goals.append(goal)
             } else {
                 sections.append(
                     GoalPeriodSection(
-                        id: goal.periodDisplayKey,
+                        id: "\(goal.periodDisplayKey)-\(goal.id.uuidString)",
+                        periodKey: goal.periodDisplayKey,
                         displayName: goal.periodDisplayName,
                         systemImage: goal.level.accentSymbol,
                         goals: [goal]
