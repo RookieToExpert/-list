@@ -265,21 +265,25 @@ private struct GoalPeriodSection: Identifiable {
     var goals: [Goal]
 
     static func makeSections(from goals: [Goal]) -> [GoalPeriodSection] {
-        goals.reduce(into: []) { sections, goal in
-            if let lastIndex = sections.indices.last,
-               sections[lastIndex].periodKey == goal.periodDisplayKey {
-                sections[lastIndex].goals.append(goal)
-            } else {
-                sections.append(
-                    GoalPeriodSection(
-                        id: "\(goal.periodDisplayKey)-\(goal.id.uuidString)",
-                        periodKey: goal.periodDisplayKey,
-                        displayName: goal.periodDisplayName,
-                        systemImage: goal.level.accentSymbol,
-                        goals: [goal]
-                    )
-                )
+        var sections: [GoalPeriodSection] = []
+
+        for goal in goals {
+            if let existingIndex = sections.firstIndex(where: { $0.periodKey == goal.periodDisplayKey }) {
+                sections[existingIndex].goals.append(goal)
+                continue
             }
+
+            sections.append(
+                GoalPeriodSection(
+                    id: "\(goal.periodDisplayKey)-\(goal.id.uuidString)",
+                    periodKey: goal.periodDisplayKey,
+                    displayName: goal.periodDisplayName,
+                    systemImage: goal.level.accentSymbol,
+                    goals: [goal]
+                )
+            )
         }
+
+        return sections
     }
 }
