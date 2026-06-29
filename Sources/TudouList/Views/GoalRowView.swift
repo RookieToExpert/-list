@@ -332,6 +332,7 @@ private struct MonthGoalSections: View {
     @Binding var expandedGoalIds: Set<UUID>
     @ObservedObject var store: PlanningStore
     let onDelete: (Goal) -> Void
+    @State private var isCompletedExpanded = false
 
     private var visibleActionGoals: [Goal] {
         let directWeekGoals = goals.filter { $0.level == .week }
@@ -404,20 +405,46 @@ private struct MonthGoalSections: View {
             )
 
             if !completedGoals.isEmpty {
-                MonthGoalSectionBlock(
-                    title: "已完成",
-                    goals: completedGoals,
-                    emptyMessage: "暂无已完成",
-                    droppableScope: nil,
-                    planListId: planListId,
-                    levelDepth: levelDepth,
-                    selectedGoalId: $selectedGoalId,
-                    expandedGoalIds: $expandedGoalIds,
-                    store: store,
-                    onDelete: onDelete
-                )
+                VStack(alignment: .leading, spacing: 4) {
+                    Button {
+                        isCompletedExpanded.toggle()
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.semibold))
+                                .rotationEffect(.degrees(isCompletedExpanded ? 90 : 0))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 10)
+
+                            Text("已完成 \(completedGoals.count)")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.leading, completedHeaderIndent)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+
+                    if isCompletedExpanded {
+                        GoalSiblingRows(
+                            goals: completedGoals,
+                            planListId: planListId,
+                            levelDepth: levelDepth + 1,
+                            selectedGoalId: $selectedGoalId,
+                            expandedGoalIds: $expandedGoalIds,
+                            store: store,
+                            onDelete: onDelete
+                        )
+                    }
+                }
             }
         }
+    }
+
+    private var completedHeaderIndent: CGFloat {
+        CGFloat(levelDepth) * 18 + 30
     }
 }
 
