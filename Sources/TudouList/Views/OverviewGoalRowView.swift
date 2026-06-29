@@ -20,6 +20,10 @@ struct OverviewGoalRowView: View {
         goal.effectiveActionScope == .today
     }
 
+    private var showsUrgentUI: Bool {
+        goal.canUseUrgent && goal.isUrgent
+    }
+
     var body: some View {
         HStack(alignment: .center, spacing: 9) {
             Button {
@@ -47,7 +51,7 @@ struct OverviewGoalRowView: View {
                         .padding(.vertical, 1)
                         .background(Color.secondary.opacity(0.10), in: Capsule())
 
-                    if goal.isUrgent {
+                    if showsUrgentUI {
                         Label("加急", systemImage: "flag.fill")
                             .font(.caption2.weight(.medium))
                             .foregroundStyle(Color.orange.opacity(0.9))
@@ -76,7 +80,7 @@ struct OverviewGoalRowView: View {
         .background(rowBackground, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
         .overlay(alignment: .leading) {
             RoundedRectangle(cornerRadius: 2)
-                .fill(goal.isUrgent ? Color.orange.opacity(0.55) : Color.clear)
+                .fill(showsUrgentUI ? Color.orange.opacity(0.55) : Color.clear)
                 .frame(width: 3)
                 .padding(.vertical, 5)
         }
@@ -87,8 +91,10 @@ struct OverviewGoalRowView: View {
             Button(goal.isCompleted ? "取消完成" : "完成") {
                 store.setCompleted(goal, isCompleted: !goal.isCompleted)
             }
-            Button(goal.isUrgent ? "取消加急" : "设为加急") {
-                store.toggleUrgent(goal)
+            if goal.canUseUrgent {
+                Button(goal.isUrgent ? "取消加急" : "设为加急") {
+                    store.toggleUrgent(goal)
+                }
             }
             if canMoveToToday {
                 Button("移动到今日必须") {
@@ -112,7 +118,7 @@ struct OverviewGoalRowView: View {
         if isSelected {
             return Color.accentColor.opacity(0.10)
         }
-        if goal.isUrgent {
+        if showsUrgentUI {
             return Color.orange.opacity(0.045)
         }
         return Color.clear

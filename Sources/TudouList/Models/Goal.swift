@@ -155,6 +155,13 @@ extension Goal {
         }
     }
 
+    var canUseUrgent: Bool {
+        effectiveKind == .action &&
+        effectiveActionScope == .today &&
+        !isCompleted &&
+        !isLegacyWeekContainer
+    }
+
     var isLegacyWeekContainer: Bool {
         Self.isLegacyWeekContainerTitle(title, level: level)
     }

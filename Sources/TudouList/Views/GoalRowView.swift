@@ -31,6 +31,9 @@ struct GoalRowView: View {
         !goal.isLegacyWeekContainer &&
         goal.effectiveActionScope == .today
     }
+    private var showsUrgentUI: Bool {
+        goal.canUseUrgent && goal.isUrgent
+    }
     private var canDragBetweenActionSections: Bool {
         goal.effectiveKind == .action &&
         !goal.isCompleted &&
@@ -108,7 +111,7 @@ struct GoalRowView: View {
                     .lineLimit(1)
             }
 
-            if goal.isUrgent {
+            if showsUrgentUI {
                 Label("加急", systemImage: "flag.fill")
                     .font(.caption.weight(.medium))
                     .foregroundStyle(Color.orange.opacity(0.9))
@@ -117,14 +120,16 @@ struct GoalRowView: View {
                     .background(Color.orange.opacity(0.12), in: Capsule())
             }
 
-            Button {
-                store.toggleUrgent(goal)
-            } label: {
-                Label("加急", systemImage: goal.isUrgent ? "flag.fill" : "flag")
-                    .labelStyle(.iconOnly)
+            if goal.canUseUrgent {
+                Button {
+                    store.toggleUrgent(goal)
+                } label: {
+                    Label("加急", systemImage: goal.isUrgent ? "flag.fill" : "flag")
+                        .labelStyle(.iconOnly)
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(goal.isUrgent ? Color.orange.opacity(0.9) : .secondary)
             }
-            .buttonStyle(.borderless)
-            .foregroundStyle(goal.isUrgent ? Color.orange.opacity(0.9) : .secondary)
 
             childGoalMenu
         }
@@ -133,7 +138,7 @@ struct GoalRowView: View {
         .background(rowBackground)
         .overlay(alignment: .leading) {
             RoundedRectangle(cornerRadius: 2)
-                .fill(goal.isUrgent ? Color.orange.opacity(0.55) : Color.clear)
+                .fill(showsUrgentUI ? Color.orange.opacity(0.55) : Color.clear)
                 .frame(width: 3)
                 .padding(.vertical, 3)
         }
@@ -147,8 +152,10 @@ struct GoalRowView: View {
             Button(goal.isCompleted ? "取消完成" : "完成") {
                 store.setCompleted(goal, isCompleted: !goal.isCompleted)
             }
-            Button(goal.isUrgent ? "取消加急" : "设为加急") {
-                store.toggleUrgent(goal)
+            if goal.canUseUrgent {
+                Button(goal.isUrgent ? "取消加急" : "设为加急") {
+                    store.toggleUrgent(goal)
+                }
             }
             if canMoveToToday {
                 Button("移动到今日必须") {
@@ -229,7 +236,7 @@ struct GoalRowView: View {
         if isSelected {
             return AnyShapeStyle(Color.accentColor.opacity(0.10))
         }
-        if goal.isUrgent {
+        if showsUrgentUI {
             return AnyShapeStyle(Color.orange.opacity(0.045))
         }
         return AnyShapeStyle(Color.clear)

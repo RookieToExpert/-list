@@ -54,15 +54,17 @@ private struct GoalEditor: View {
                     }
                 ))
 
-                Toggle("加急", isOn: Binding(
-                    get: { goal?.isUrgent ?? false },
-                    set: { _ in
-                        store.flushSave()
-                        if let goal {
-                            store.toggleUrgent(goal)
+                if goal?.canUseUrgent == true {
+                    Toggle("加急", isOn: Binding(
+                        get: { goal?.isUrgent ?? false },
+                        set: { _ in
+                            store.flushSave()
+                            if let goal {
+                                store.toggleUrgent(goal)
+                            }
                         }
-                    }
-                ))
+                    ))
+                }
 
                 if let completedAt = goal?.completedAt {
                     LabeledContent("完成时间") {

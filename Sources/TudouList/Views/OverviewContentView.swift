@@ -11,14 +11,17 @@ struct OverviewContentView: View {
     }
 
     private var goals: [Goal] {
-        allOverviewGoals.filter { levelFilter.includes($0) }
+        if kind == .all {
+            return allOverviewGoals
+        }
+        return allOverviewGoals.filter { levelFilter.includes($0) }
     }
 
     private var showsLevelFilter: Bool {
         switch kind {
-        case .all, .completed:
+        case .completed:
             return true
-        case .todayFocus, .thisWeek, .urgent:
+        case .all, .allActions, .todayFocus, .thisWeek, .urgent:
             return false
         }
     }
@@ -37,7 +40,13 @@ struct OverviewContentView: View {
             overviewHeader
             Divider()
 
-            if goals.isEmpty {
+            if kind == .all {
+                if store.goalMapSections().isEmpty {
+                    EmptyOverviewView(kind: kind)
+                } else {
+                    GoalMapOverviewView(selectedGoalId: $selectedGoalId, store: store)
+                }
+            } else if goals.isEmpty {
                 EmptyOverviewView(kind: kind)
             } else {
                 ScrollView {
@@ -92,7 +101,7 @@ struct OverviewContentView: View {
                         }
                     }
                     .pickerStyle(.segmented)
-                    .frame(width: 180)
+                    .frame(width: 240)
                 }
             }
         }

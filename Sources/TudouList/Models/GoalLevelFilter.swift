@@ -2,7 +2,8 @@ import Foundation
 
 enum GoalLevelFilter: String, CaseIterable, Identifiable {
     case all
-    case actionable
+    case objectives
+    case actions
 
     var id: String { rawValue }
 
@@ -10,8 +11,10 @@ enum GoalLevelFilter: String, CaseIterable, Identifiable {
         switch self {
         case .all:
             return "全部"
-        case .actionable:
-            return "仅行动"
+        case .objectives:
+            return "目标"
+        case .actions:
+            return "行动"
         }
     }
 
@@ -19,7 +22,9 @@ enum GoalLevelFilter: String, CaseIterable, Identifiable {
         switch self {
         case .all:
             return true
-        case .actionable:
+        case .objectives:
+            return goal.effectiveKind == .objective
+        case .actions:
             return goal.effectiveKind == .action
         }
     }

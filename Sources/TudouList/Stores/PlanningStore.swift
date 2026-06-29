@@ -172,6 +172,7 @@ final class PlanningStore: ObservableObject {
 
     func toggleUrgent(_ goal: Goal) {
         guard let index = goals.firstIndex(where: { $0.id == goal.id }) else { return }
+        guard goals[index].canUseUrgent else { return }
         goals[index].isUrgent.toggle()
         goals[index].updatedAt = .now
         saveNow()
@@ -236,6 +237,13 @@ final class PlanningStore: ObservableObject {
             )
         case .all:
             return sortedGoals(goals.filter { !$0.isLegacyWeekContainer })
+        case .allActions:
+            return sortedGoals(
+                goals.filter {
+                    $0.effectiveKind == .action &&
+                    !$0.isLegacyWeekContainer
+                }
+            )
         case .completed:
             return goals
                 .filter { $0.isCompleted && !$0.isLegacyWeekContainer }
@@ -271,6 +279,58 @@ final class PlanningStore: ObservableObject {
 
         let planName = planListName(for: goal)
         return ([planName] + path).joined(separator: " / ")
+    }
+
+    func goalMapSummaries() -> [GoalMapSummary] {
+        let rootGoals = sortedGoals(goals.filter { goal in
+            goal.effectiveKind == .objective &&
+            !goal.isLegacyWeekContainer &&
+            (goal.parentId == nil || goal.level == .year)
+        })
+
+        return rootGoals.map { rootGoal in
+            let descendants = descendantGoals(of: rootGoal.id, in: goals)
+
+            let stageGoalCount = descendants.filter {
+                $0.effectiveKind == .objective &&
+                !$0.isLegacyWeekContainer
+            }.count
+
+            let todayActionCount = descendants.filter {
+                $0.effectiveKind == .action &&
+                $0.effectiveActionScope == .today &&
+                !$0.isCompleted
+            }.count
+
+            let allocationActionCount = descendants.filter {
+                $0.effectiveKind == .action &&
+                ($0.effectiveActionScope == .thisWeek || $0.effectiveActionScope == .later) &&
+                !$0.isCompleted
+            }.count
+
+            let completedActionCount = descendants.filter {
+                $0.effectiveKind == .action &&
+                $0.isCompleted
+            }.count
+
+            return GoalMapSummary(
+                rootGoal: rootGoal,
+                planListName: planListName(for: rootGoal),
+                stageGoalCount: stageGoalCount,
+                todayActionCount: todayActionCount,
+                allocationActionCount: allocationActionCount,
+                completedActionCount: completedActionCount
+            )
+        }
+    }
+
+    func goalMapSections() -> [GoalMapSection] {
+        let summaries = goalMapSummaries()
+        return planLists.compactMap { plan in
+            let planSummaries = summaries.filter { $0.rootGoal.planListId == plan.id }
+            guard !planSummaries.isEmpty else { return nil }
+            return GoalMapSection(planList: plan, summaries: planSummaries)
+        }
     }
 
     private func goalDisplaySort(_ lhs: Goal, _ rhs: Goal) -> Bool {
@@ -422,6 +482,24 @@ final class PlanningStore: ObservableObject {
         return base.appending(path: "TudouList", directoryHint: .isDirectory)
             .appending(path: "store.json")
     }
+}
+
+struct GoalMapSummary: Identifiable, Equatable {
+    let rootGoal: Goal
+    let planListName: String
+    let stageGoalCount: Int
+    let todayActionCount: Int
+    let allocationActionCount: Int
+    let completedActionCount: Int
+
+    var id: UUID { rootGoal.id }
+}
+
+struct GoalMapSection: Identifiable, Equatable {
+    let planList: PlanList
+    let summaries: [GoalMapSummary]
+
+    var id: UUID { planList.id }
 }
 
 struct GoalCreationOption: Identifiable, Equatable {
