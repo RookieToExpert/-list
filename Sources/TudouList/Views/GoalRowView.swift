@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct GoalRowView: View {
     let goal: Goal
@@ -30,101 +31,15 @@ struct GoalRowView: View {
         !goal.isLegacyWeekContainer &&
         goal.effectiveActionScope == .today
     }
+    private var canDragBetweenActionSections: Bool {
+        goal.effectiveKind == .action &&
+        !goal.isCompleted &&
+        !goal.isLegacyWeekContainer
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            HStack(alignment: .center, spacing: 7) {
-                expandControl
-
-                Button {
-                    store.setCompleted(goal, isCompleted: !goal.isCompleted)
-                } label: {
-                    Image(systemName: goal.isCompleted ? "checkmark.circle.fill" : "circle")
-                        .font(.title3)
-                        .symbolRenderingMode(.hierarchical)
-                        .foregroundStyle(goal.isCompleted ? .green : .secondary)
-                }
-                .buttonStyle(.plain)
-
-                Text(goal.title)
-                    .font(.body.weight(.medium))
-                    .foregroundStyle(goal.isCompleted ? .secondary : .primary)
-                    .strikethrough(goal.isCompleted, color: .secondary)
-                    .lineLimit(1)
-
-                Spacer(minLength: 10)
-
-                if let completedAt = goal.completedAt, goal.isCompleted {
-                    Text(completionText(for: completedAt))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-
-                if goal.isUrgent {
-                    Label("加急", systemImage: "flag.fill")
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(Color.orange.opacity(0.9))
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 1)
-                        .background(Color.orange.opacity(0.12), in: Capsule())
-                }
-
-                Button {
-                    store.toggleUrgent(goal)
-                } label: {
-                    Label("加急", systemImage: goal.isUrgent ? "flag.fill" : "flag")
-                        .labelStyle(.iconOnly)
-                }
-                .buttonStyle(.borderless)
-                .foregroundStyle(goal.isUrgent ? Color.orange.opacity(0.9) : .secondary)
-
-                childGoalMenu
-            }
-            .padding(.horizontal, 6)
-            .padding(.vertical, 3)
-            .background(rowBackground)
-            .overlay(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(goal.isUrgent ? Color.orange.opacity(0.55) : Color.clear)
-                    .frame(width: 3)
-                    .padding(.vertical, 3)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-            .opacity(goal.isCompleted ? 0.62 : 1)
-            .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-            .onTapGesture {
-                selectedGoalId = goal.id
-            }
-            .contextMenu {
-                Button(goal.isCompleted ? "取消完成" : "完成") {
-                    store.setCompleted(goal, isCompleted: !goal.isCompleted)
-                }
-                Button(goal.isUrgent ? "取消加急" : "设为加急") {
-                    store.toggleUrgent(goal)
-                }
-                if canMoveToToday {
-                    Button("移动到今日必须") {
-                        store.updateActionScope(id: goal.id, actionScope: .today)
-                    }
-                }
-                if canMoveToLater {
-                    Button("移回待分配") {
-                        store.updateActionScope(id: goal.id, actionScope: .later)
-                    }
-                }
-                ForEach(creationOptions) { option in
-                    Button(option.title) {
-                        addChildGoal(option: option)
-                    }
-                    .disabled(!option.isEnabled)
-                }
-                Divider()
-                Button("删除", role: .destructive) {
-                    onDelete(goal)
-                }
-            }
-            .padding(.leading, rowIndent)
+            interactiveRow
 
             if isExpanded {
                 if goal.level == .month {
@@ -150,6 +65,113 @@ struct GoalRowView: View {
                 }
             }
         }
+    }
+
+    @ViewBuilder
+    private var interactiveRow: some View {
+        if canDragBetweenActionSections {
+            rowContent
+                .onDrag {
+                    NSItemProvider(object: goal.id.uuidString as NSString)
+                }
+        } else {
+            rowContent
+        }
+    }
+
+    private var rowContent: some View {
+        HStack(alignment: .center, spacing: 7) {
+            expandControl
+
+            Button {
+                store.setCompleted(goal, isCompleted: !goal.isCompleted)
+            } label: {
+                Image(systemName: goal.isCompleted ? "checkmark.circle.fill" : "circle")
+                    .font(.title3)
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(goal.isCompleted ? .green : .secondary)
+            }
+            .buttonStyle(.plain)
+
+            Text(goal.title)
+                .font(.body.weight(.medium))
+                .foregroundStyle(goal.isCompleted ? .secondary : .primary)
+                .strikethrough(goal.isCompleted, color: .secondary)
+                .lineLimit(1)
+
+            Spacer(minLength: 10)
+
+            if let completedAt = goal.completedAt, goal.isCompleted {
+                Text(completionText(for: completedAt))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            if goal.isUrgent {
+                Label("加急", systemImage: "flag.fill")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(Color.orange.opacity(0.9))
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 1)
+                    .background(Color.orange.opacity(0.12), in: Capsule())
+            }
+
+            Button {
+                store.toggleUrgent(goal)
+            } label: {
+                Label("加急", systemImage: goal.isUrgent ? "flag.fill" : "flag")
+                    .labelStyle(.iconOnly)
+            }
+            .buttonStyle(.borderless)
+            .foregroundStyle(goal.isUrgent ? Color.orange.opacity(0.9) : .secondary)
+
+            childGoalMenu
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
+        .background(rowBackground)
+        .overlay(alignment: .leading) {
+            RoundedRectangle(cornerRadius: 2)
+                .fill(goal.isUrgent ? Color.orange.opacity(0.55) : Color.clear)
+                .frame(width: 3)
+                .padding(.vertical, 3)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        .opacity(goal.isCompleted ? 0.62 : 1)
+        .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        .onTapGesture {
+            selectedGoalId = goal.id
+        }
+        .contextMenu {
+            Button(goal.isCompleted ? "取消完成" : "完成") {
+                store.setCompleted(goal, isCompleted: !goal.isCompleted)
+            }
+            Button(goal.isUrgent ? "取消加急" : "设为加急") {
+                store.toggleUrgent(goal)
+            }
+            if canMoveToToday {
+                Button("移动到今日必须") {
+                    store.updateActionScope(id: goal.id, actionScope: .today)
+                }
+            }
+            if canMoveToLater {
+                Button("移回待分配") {
+                    store.updateActionScope(id: goal.id, actionScope: .later)
+                }
+            }
+            ForEach(creationOptions) { option in
+                Button(option.title) {
+                    addChildGoal(option: option)
+                }
+                .disabled(!option.isEnabled)
+            }
+            Divider()
+            Button("删除", role: .destructive) {
+                onDelete(goal)
+            }
+        }
+        .padding(.leading, rowIndent)
     }
 
     @ViewBuilder
@@ -359,6 +381,7 @@ private struct MonthGoalSections: View {
                 title: "今日必须",
                 goals: dayGoals,
                 emptyMessage: "暂无今日必须",
+                droppableScope: .today,
                 planListId: planListId,
                 levelDepth: levelDepth,
                 selectedGoalId: $selectedGoalId,
@@ -371,6 +394,7 @@ private struct MonthGoalSections: View {
                 title: "待分配",
                 goals: allocationGoals,
                 emptyMessage: "暂无待分配",
+                droppableScope: .later,
                 planListId: planListId,
                 levelDepth: levelDepth,
                 selectedGoalId: $selectedGoalId,
@@ -384,6 +408,7 @@ private struct MonthGoalSections: View {
                     title: "已完成",
                     goals: completedGoals,
                     emptyMessage: "暂无已完成",
+                    droppableScope: nil,
                     planListId: planListId,
                     levelDepth: levelDepth,
                     selectedGoalId: $selectedGoalId,
@@ -400,12 +425,14 @@ private struct MonthGoalSectionBlock: View {
     let title: String
     let goals: [Goal]
     let emptyMessage: String
+    let droppableScope: ActionScope?
     let planListId: UUID
     let levelDepth: Int
     @Binding var selectedGoalId: UUID?
     @Binding var expandedGoalIds: Set<UUID>
     @ObservedObject var store: PlanningStore
     let onDelete: (Goal) -> Void
+    @State private var isDropTargeted = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -431,6 +458,10 @@ private struct MonthGoalSectionBlock: View {
                 )
             }
         }
+        .padding(.vertical, 2)
+        .background(sectionDropBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .onDrop(of: [UTType.text.identifier], isTargeted: supportsDrop ? $isDropTargeted : nil, perform: handleDrop(providers:))
     }
 
     private var sectionHeaderIndent: CGFloat {
@@ -439,5 +470,42 @@ private struct MonthGoalSectionBlock: View {
 
     private var contentIndent: CGFloat {
         CGFloat(levelDepth) * 18 + 48
+    }
+
+    private var supportsDrop: Bool {
+        droppableScope != nil
+    }
+
+    private var sectionDropBackground: some View {
+        RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .fill(isDropTargeted ? Color.accentColor.opacity(0.08) : Color.clear)
+    }
+
+    private func handleDrop(providers: [NSItemProvider]) -> Bool {
+        guard let targetScope = droppableScope else { return false }
+        guard let provider = providers.first(where: { $0.canLoadObject(ofClass: NSString.self) }) else {
+            return false
+        }
+
+        provider.loadObject(ofClass: NSString.self) { item, _ in
+            guard let string = item as? String,
+                  let goalId = UUID(uuidString: string) else {
+                return
+            }
+
+            Task { @MainActor in
+                guard let goal = store.goal(id: goalId),
+                      goal.effectiveKind == .action,
+                      !goal.isCompleted,
+                      !goal.isLegacyWeekContainer,
+                      goal.effectiveActionScope != targetScope else {
+                    return
+                }
+
+                store.updateActionScope(id: goalId, actionScope: targetScope)
+            }
+        }
+
+        return true
     }
 }
