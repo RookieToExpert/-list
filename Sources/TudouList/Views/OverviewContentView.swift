@@ -21,7 +21,7 @@ struct OverviewContentView: View {
         switch kind {
         case .completed:
             return true
-        case .all, .allActions, .todayFocus, .thisWeek, .urgent:
+        case .all, .actionBoard, .todayFocus, .thisWeek, .urgent:
             return false
         }
     }
@@ -45,6 +45,12 @@ struct OverviewContentView: View {
                     EmptyOverviewView(kind: kind)
                 } else {
                     GoalMapOverviewView(selectedGoalId: $selectedGoalId, store: store)
+                }
+            } else if kind == .actionBoard {
+                if goals.isEmpty {
+                    EmptyOverviewView(kind: kind)
+                } else {
+                    ActionBoardOverviewView(selectedGoalId: $selectedGoalId, store: store)
                 }
             } else if goals.isEmpty {
                 EmptyOverviewView(kind: kind)

@@ -156,6 +156,9 @@ final class PlanningStore: ObservableObject {
 
         goals[index].actionScope = actionScope
         goals[index].level = legacyLevel
+        if actionScope != .today {
+            goals[index].isUrgent = false
+        }
         goals[index].updatedAt = .now
         flush ? saveNow() : scheduleSave()
     }
@@ -226,6 +229,15 @@ final class PlanningStore: ObservableObject {
                     ($0.effectiveActionScope == .thisWeek || $0.effectiveActionScope == .later)
                 }
             )
+        case .actionBoard:
+            return sortedGoals(
+                goals.filter {
+                    $0.effectiveKind == .action &&
+                    !$0.isCompleted &&
+                    !$0.isLegacyWeekContainer &&
+                    ($0.effectiveActionScope == .today || $0.effectiveActionScope == .thisWeek || $0.effectiveActionScope == .later)
+                }
+            )
         case .urgent:
             return sortedGoals(
                 goals.filter {
@@ -237,13 +249,6 @@ final class PlanningStore: ObservableObject {
             )
         case .all:
             return sortedGoals(goals.filter { !$0.isLegacyWeekContainer })
-        case .allActions:
-            return sortedGoals(
-                goals.filter {
-                    $0.effectiveKind == .action &&
-                    !$0.isLegacyWeekContainer
-                }
-            )
         case .completed:
             return goals
                 .filter { $0.isCompleted && !$0.isLegacyWeekContainer }

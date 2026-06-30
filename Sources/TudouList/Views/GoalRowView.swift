@@ -9,6 +9,8 @@ struct GoalRowView: View {
     @Binding var expandedGoalIds: Set<UUID>
     @ObservedObject var store: PlanningStore
     let onDelete: (Goal) -> Void
+    @State private var pendingMove: PendingActionScopeMove?
+    @AppStorage("urgentMoveWarningSuppressedDate") private var suppressedUrgentMoveWarningDate = ""
 
     private var isSelected: Bool { selectedGoalId == goal.id }
     private var hasChildren: Bool { store.hasChildren(goal) }
@@ -68,6 +70,7 @@ struct GoalRowView: View {
                 }
             }
         }
+        .urgentMoveConfirmation(pendingMove: $pendingMove, store: store)
     }
 
     @ViewBuilder
@@ -164,7 +167,7 @@ struct GoalRowView: View {
             }
             if canMoveToLater {
                 Button("移回待分配") {
-                    store.updateActionScope(id: goal.id, actionScope: .later)
+                    requestMove(to: .later)
                 }
             }
             ForEach(creationOptions) { option in
@@ -288,6 +291,14 @@ struct GoalRowView: View {
         ) {
             expandedGoalIds.insert(goal.id)
             selectedGoalId = child.id
+        }
+    }
+
+    private func requestMove(to targetScope: ActionScope) {
+        if shouldWarnBeforeActionScopeMove(goal, to: targetScope, suppressedDate: suppressedUrgentMoveWarningDate) {
+            pendingMove = PendingActionScopeMove(goalID: goal.id, targetScope: targetScope)
+        } else {
+            store.updateActionScope(id: goal.id, actionScope: targetScope)
         }
     }
 }
@@ -467,6 +478,8 @@ private struct MonthGoalSectionBlock: View {
     @ObservedObject var store: PlanningStore
     let onDelete: (Goal) -> Void
     @State private var isDropTargeted = false
+    @State private var pendingMove: PendingActionScopeMove?
+    @AppStorage("urgentMoveWarningSuppressedDate") private var suppressedUrgentMoveWarningDate = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -496,6 +509,7 @@ private struct MonthGoalSectionBlock: View {
         .background(sectionDropBackground)
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .onDrop(of: [UTType.text.identifier], isTargeted: supportsDrop ? $isDropTargeted : nil, perform: handleDrop(providers:))
+        .urgentMoveConfirmation(pendingMove: $pendingMove, store: store)
     }
 
     private var sectionHeaderIndent: CGFloat {
@@ -536,10 +550,18 @@ private struct MonthGoalSectionBlock: View {
                     return
                 }
 
-                store.updateActionScope(id: goalId, actionScope: targetScope)
+                requestMove(for: goal, to: targetScope)
             }
         }
 
         return true
+    }
+
+    private func requestMove(for goal: Goal, to targetScope: ActionScope) {
+        if shouldWarnBeforeActionScopeMove(goal, to: targetScope, suppressedDate: suppressedUrgentMoveWarningDate) {
+            pendingMove = PendingActionScopeMove(goalID: goal.id, targetScope: targetScope)
+        } else {
+            store.updateActionScope(id: goal.id, actionScope: targetScope)
+        }
     }
 }

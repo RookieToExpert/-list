@@ -5,6 +5,8 @@ struct OverviewGoalRowView: View {
     let isSelected: Bool
     @ObservedObject var store: PlanningStore
     let onSelect: () -> Void
+    @State private var pendingMove: PendingActionScopeMove?
+    @AppStorage("urgentMoveWarningSuppressedDate") private var suppressedUrgentMoveWarningDate = ""
 
     private var canMoveToToday: Bool {
         goal.effectiveKind == .action &&
@@ -103,9 +105,18 @@ struct OverviewGoalRowView: View {
             }
             if canMoveToLater {
                 Button("移回待分配") {
-                    store.updateActionScope(id: goal.id, actionScope: .later)
+                    requestMove(to: .later)
                 }
             }
+        }
+        .urgentMoveConfirmation(pendingMove: $pendingMove, store: store)
+    }
+
+    private func requestMove(to targetScope: ActionScope) {
+        if shouldWarnBeforeActionScopeMove(goal, to: targetScope, suppressedDate: suppressedUrgentMoveWarningDate) {
+            pendingMove = PendingActionScopeMove(goalID: goal.id, targetScope: targetScope)
+        } else {
+            store.updateActionScope(id: goal.id, actionScope: targetScope)
         }
     }
 
