@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct ContentView: View {
@@ -8,11 +9,26 @@ struct ContentView: View {
     @State private var sidebarSelection: SidebarSelection?
     @State private var selectedGoalId: UUID?
     @State private var expandedGoalIdsByPlanList: [UUID: Set<UUID>] = [:]
+    @State private var windowWidth: CGFloat = 0
+    @State private var hostingWindow: NSWindow?
     @State private var newPlanName = ""
     @State private var showingNewPlan = false
     @State private var renamingPlan: PlanList?
     @State private var renamePlanName = ""
     @State private var deletingPlan: PlanList?
+
+    private enum LayoutMetrics {
+        static let sidebarMinWidth: CGFloat = 240
+        static let sidebarIdealWidth: CGFloat = 260
+        static let sidebarMaxWidth: CGFloat = 320
+        static let primaryMinWidth: CGFloat = 620
+        static let primaryIdealWidth: CGFloat = 980
+        static let inspectorMinWidth: CGFloat = 300
+        static let inspectorIdealWidth: CGFloat = 360
+        static let inspectorMaxWidth: CGFloat = 460
+        static let twoColumnMinWidth = sidebarMinWidth + primaryMinWidth
+        static let threeColumnMinWidth = twoColumnMinWidth + inspectorMinWidth
+    }
 
     private var selectedPlan: PlanList? {
         guard case let .planList(planId) = sidebarSelection else { return nil }
@@ -25,12 +41,21 @@ struct ContentView: View {
     }
 
     var body: some View {
-        mainSplitView
-            .frame(minWidth: 980, minHeight: 620)
+        GeometryReader { proxy in
+            mainSplitView
+                .background(WindowAccessor(window: $hostingWindow))
+                .onAppear {
+                    updateWindowWidth(proxy.size.width)
+                }
+                .onChange(of: proxy.size.width) { _, width in
+                    updateWindowWidth(width)
+                }
+        }
+            .frame(minWidth: LayoutMetrics.twoColumnMinWidth, minHeight: 620)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
-                        isDetailPaneVisible.toggle()
+                        toggleDetailPane()
                     } label: {
                         Image(systemName: "sidebar.right")
                     }
@@ -118,11 +143,18 @@ struct ContentView: View {
             sidebarView
         } detail: {
             primaryContentView
-                .navigationSplitViewColumnWidth(min: 460, ideal: 980)
+                .navigationSplitViewColumnWidth(
+                    min: LayoutMetrics.primaryMinWidth,
+                    ideal: LayoutMetrics.primaryIdealWidth
+                )
                 .inspector(isPresented: $isDetailPaneVisible) {
-                GoalDetailView(goalID: selectedGoalId, store: store)
-                    .inspectorColumnWidth(min: 300, ideal: 360, max: 460)
-            }
+                    GoalDetailView(goalID: selectedGoalId, store: store)
+                        .inspectorColumnWidth(
+                            min: LayoutMetrics.inspectorMinWidth,
+                            ideal: LayoutMetrics.inspectorIdealWidth,
+                            max: LayoutMetrics.inspectorMaxWidth
+                        )
+                }
         }
     }
 
@@ -142,7 +174,11 @@ struct ContentView: View {
                 deletingPlan = plan
             }
         )
-        .navigationSplitViewColumnWidth(min: 240, ideal: 260, max: 320)
+        .navigationSplitViewColumnWidth(
+            min: LayoutMetrics.sidebarMinWidth,
+            ideal: LayoutMetrics.sidebarIdealWidth,
+            max: LayoutMetrics.sidebarMaxWidth
+        )
     }
 
     @ViewBuilder
@@ -176,6 +212,40 @@ struct ContentView: View {
             set: { if !$0 { deletingPlan = nil } }
         )
     }
+
+    private func updateWindowWidth(_ width: CGFloat) {
+        windowWidth = width
+        if width < LayoutMetrics.threeColumnMinWidth, isDetailPaneVisible {
+            // Passive resize: keep the readable two-column layout by dropping the inspector first.
+            isDetailPaneVisible = false
+        }
+    }
+
+    private func toggleDetailPane() {
+        if isDetailPaneVisible {
+            isDetailPaneVisible = false
+        } else if windowWidth == 0 || windowWidth >= LayoutMetrics.threeColumnMinWidth {
+            isDetailPaneVisible = true
+        } else {
+            expandWindowForDetailPane()
+            DispatchQueue.main.async {
+                isDetailPaneVisible = true
+            }
+        }
+    }
+
+    private func expandWindowForDetailPane() {
+        guard let hostingWindow else { return }
+
+        let widthDeficit = LayoutMetrics.threeColumnMinWidth - windowWidth
+        guard widthDeficit > 0 else { return }
+
+        var frame = hostingWindow.frame
+        frame.size.width += widthDeficit
+        frame.origin.x -= widthDeficit
+        hostingWindow.setFrame(frame, display: true, animate: true)
+    }
+
     private func expandedGoalIdsBinding(for planId: UUID?) -> Binding<Set<UUID>> {
         Binding(
             get: {
@@ -209,6 +279,24 @@ struct ContentView: View {
             guard let planId = UUID(uuidString: item.key) else { return }
             let goalIds = item.value.compactMap(UUID.init(uuidString:))
             result[planId] = Set(goalIds)
+        }
+    }
+}
+
+private struct WindowAccessor: NSViewRepresentable {
+    @Binding var window: NSWindow?
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async {
+            window = view.window
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        DispatchQueue.main.async {
+            window = nsView.window
         }
     }
 }
