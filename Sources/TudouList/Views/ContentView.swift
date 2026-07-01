@@ -11,7 +11,6 @@ struct ContentView: View {
     @State private var expandedGoalIdsByPlanList: [UUID: Set<UUID>] = [:]
     @State private var windowWidth: CGFloat = 0
     @State private var hostingWindow: NSWindow?
-    @State private var inspectorLayoutRevision = 0
     @State private var newPlanName = ""
     @State private var showingNewPlan = false
     @State private var renamingPlan: PlanList?
@@ -19,9 +18,9 @@ struct ContentView: View {
     @State private var deletingPlan: PlanList?
 
     private enum LayoutMetrics {
-        static let sidebarMinWidth: CGFloat = 240
-        static let sidebarIdealWidth: CGFloat = 260
-        static let sidebarMaxWidth: CGFloat = 320
+        static let sidebarMinWidth: CGFloat = 200
+        static let sidebarIdealWidth: CGFloat = 220
+        static let sidebarMaxWidth: CGFloat = 260
         static let primaryMinWidth: CGFloat = 620
         static let primaryIdealWidth: CGFloat = 980
         static let inspectorMinWidth: CGFloat = 420
@@ -29,7 +28,7 @@ struct ContentView: View {
         static let inspectorMaxWidth: CGFloat = 460
         static let splitDividerAllowance: CGFloat = 24
         static let twoColumnMinWidth = sidebarMinWidth + primaryMinWidth
-        static let threeColumnMinWidth = twoColumnMinWidth + inspectorMinWidth + splitDividerAllowance
+        static let threeColumnMinWidth = sidebarMaxWidth + primaryMinWidth + inspectorMinWidth + splitDividerAllowance
     }
 
     private var selectedPlan: PlanList? {
@@ -145,7 +144,6 @@ struct ContentView: View {
             sidebarView
         } detail: {
             primaryContentView
-                .id(inspectorLayoutRevision)
                 .navigationSplitViewColumnWidth(
                     min: LayoutMetrics.primaryMinWidth,
                     ideal: LayoutMetrics.primaryIdealWidth
@@ -181,6 +179,11 @@ struct ContentView: View {
             min: LayoutMetrics.sidebarMinWidth,
             ideal: LayoutMetrics.sidebarIdealWidth,
             max: LayoutMetrics.sidebarMaxWidth
+        )
+        .frame(
+            minWidth: LayoutMetrics.sidebarMinWidth,
+            idealWidth: LayoutMetrics.sidebarIdealWidth,
+            maxWidth: LayoutMetrics.sidebarMaxWidth
         )
     }
 
@@ -221,11 +224,6 @@ struct ContentView: View {
             get: { isDetailPaneVisible },
             set: { isVisible in
                 isDetailPaneVisible = isVisible
-                if !isVisible {
-                    DispatchQueue.main.async {
-                        inspectorLayoutRevision += 1
-                    }
-                }
             }
         )
     }
